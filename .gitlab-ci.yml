@@ -1,0 +1,97 @@
+stages:
+  - test
+  - build
+  - publish
+  - deploy
+#code_quality:
+#  image: node:16.20.2
+#  stage: test
+#  before_script:
+#    - npm ci
+#  script:
+#    - npm run eslint
+#  only:
+#    - merge_requests
+
+build:
+  image: node:16.20.2
+  stage: build
+  before_script:
+    - npm config rm proxy
+    - npm config rm https-proxy
+    - npm ci
+  script:
+    - npm run build
+  artifacts:
+#    expire_in: 1 hour
+    paths:
+      - build
+#      - node_modules/
+  only:
+#    - merge_requests
+    - main
+
+#variables:
+#  TAG_LATEST: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:latest
+#  TAG_COMMIT: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:$CI_COMMIT_SHORT_SHA
+#
+#publish:
+#  image: docker:20.10.16
+#  stage: publish
+#  services:
+#    - docker:20.10.16-dind
+#  variables:
+#    DOCKER_HOST: tcp://docker:2375
+#    DOCKER_DRIVER: overlay2
+#    DOCKER_TLS_CERTDIR: ""
+#
+##  dependencies:
+##    - build
+#  script:
+#    - docker build -t $TAG_COMMIT -t $TAG_LATEST .
+#    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+#    - docker push $TAG_COMMIT
+#    - docker push $TAG_LATEST
+#  only:
+#    - main
+#
+#deploy:
+#  image: alpine:latest
+#  stage: deploy
+#  tags:
+#    - deployment
+#  script:
+#    - chmod og= $ID_RSA
+#    - apk update && apk add openssh-client
+#    - ssh -i $ID_RSA -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY"
+#    - ssh -i $ID_RSA -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker pull $TAG_COMMIT"
+#    - ssh -i $ID_RSA -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker container rm -f my-app || true"
+#    - ssh -i $ID_RSA -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "docker run -d -p 81:80 --name my-app $TAG_COMMIT"
+#  environment:
+#    name: production
+#    url: https://prod.danimaxi54-webpack-project.ru/
+#  resource_group: production
+#  only:
+#    - main
+
+#    - delivery (по кнопке)
+#    - deployment (автоматически, сразу же после мержа в мастер)
+
+# надо добавить public key для юзера, на который будет происходить подключение
+# добавить переменные в gitlab
+
+deploy:
+  image: alpine:latest
+  stage: deploy
+  before_script:
+    - apk update && apk add rsync openssh
+    - mkdir ~/.ssh
+    - chmod 600 ~/.ssh
+    - echo "$NEW_ID_RSA" >> ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - echo "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+    - chmod 600 ~/.ssh/known_hosts
+  script:
+    - rsync -a --delete build/ $SERVER_USER@$SERVER_IP:/var/www/nginx-ci-cd-frontend/
+  only:
+    - main
